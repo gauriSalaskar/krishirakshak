@@ -3,6 +3,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from contextlib import asynccontextmanager
 import os
+import numpy as np
 
 from routes import auth, reports, predict, alerts, community, dashboard, profile, schemes, weather
 from database import create_indexes
@@ -14,8 +15,19 @@ os.makedirs("uploads", exist_ok=True)
 async def lifespan(app: FastAPI):
     # Startup
     await create_indexes()
-    print("✅ KrishiRakshak AI backend started")
     print("✅ MongoDB indexes created")
+
+    # Warmup: trigger model load + XLA compilation at startup
+    try:
+        from ai.predict import load_model
+        model = load_model()
+        dummy = np.zeros((1, 224, 224, 3), dtype=np.float32)
+        model.predict(dummy, verbose=0)
+        print("✅ AI model warmed up")
+    except Exception as e:
+        print(f"⚠️ Model warmup failed (predictions may be slow): {e}")
+
+    print("✅ KrishiRakshak AI backend started")
     yield
     # Shutdown
     print("KrishiRakshak AI backend shutting down")
