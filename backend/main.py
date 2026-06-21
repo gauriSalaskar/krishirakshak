@@ -21,8 +21,12 @@ async def lifespan(app: FastAPI):
     await create_indexes()
     print("✅ MongoDB indexes created")
 
-    # Warmup: trigger model load + XLA compilation at startup
+     # Warmup: trigger model load + XLA compilation at startup
     try:
+        import sys
+        print(f"DEBUG cwd: {os.getcwd()}")
+        print(f"DEBUG __file__: {__file__}")
+        print(f"DEBUG sys.path: {sys.path[:3]}")
         from ai.predict import load_model
         model = load_model()
         dummy = np.zeros((1, 224, 224, 3), dtype=np.float32)
@@ -30,7 +34,6 @@ async def lifespan(app: FastAPI):
         print("✅ AI model warmed up")
     except Exception as e:
         print(f"⚠️ Model warmup failed (predictions may be slow): {e}")
-
     print("✅ KrishiRakshak AI backend started")
     yield
     # Shutdown
