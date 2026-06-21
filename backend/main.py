@@ -8,11 +8,12 @@ from routes import auth, reports, predict, alerts, community, dashboard, profile
 from database import create_indexes
 from middleware.rate_limit import RateLimitMiddleware
 
+os.makedirs("uploads", exist_ok=True)
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     # Startup
     await create_indexes()
-    os.makedirs("uploads", exist_ok=True)
     print("✅ KrishiRakshak AI backend started")
     print("✅ MongoDB indexes created")
     yield
