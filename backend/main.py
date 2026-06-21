@@ -1,0 +1,57 @@
+from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
+from fastapi.staticfiles import StaticFiles
+from contextlib import asynccontextmanager
+import os
+
+from routes import auth, reports, predict, alerts, community, dashboard, profile, schemes, weather
+from database import create_indexes
+from middleware.rate_limit import RateLimitMiddleware
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    # Startup
+    await create_indexes()
+    os.makedirs("uploads", exist_ok=True)
+    print("✅ KrishiRakshak AI backend started")
+    print("✅ MongoDB indexes created")
+    yield
+    # Shutdown
+    print("KrishiRakshak AI backend shutting down")
+
+app = FastAPI(
+    title="KrishiRakshak AI API",
+    version="1.0.0",
+    description="AI-Powered Crop Disease Detection & Outbreak Prediction Platform",
+    lifespan=lifespan
+)
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
+app.add_middleware(RateLimitMiddleware)
+
+app.mount("/uploads", StaticFiles(directory="uploads"), name="uploads")
+
+app.include_router(auth.router, prefix="/auth", tags=["Authentication"])
+app.include_router(reports.router, tags=["Reports"])
+app.include_router(predict.router, tags=["AI Prediction"])
+app.include_router(alerts.router, tags=["Outbreak Alerts"])
+app.include_router(community.router, tags=["Community"])
+app.include_router(dashboard.router, tags=["Dashboard"])
+app.include_router(profile.router, tags=["Profile"])
+app.include_router(schemes.router, tags=["Kisan Yojana Schemes"])
+app.include_router(weather.router, tags=["Weather"])
+
+@app.get("/")
+async def root():
+    return {"message": "KrishiRakshak AI API is running", "version": "1.0.0", "status": "healthy"}
+
+@app.get("/health")
+async def health():
+    return {"status": "healthy", "service": "KrishiRakshak AI"}
