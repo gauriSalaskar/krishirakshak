@@ -12,6 +12,8 @@ const LeafScanAnimation = lazy(() => import('../components/detection/LeafScanAni
 interface PredictionResult {
   disease: string
   confidence: number
+  isUncertain?: boolean
+  topPredictions?: { disease: string; confidence: number }[]
   symptoms: string[]
   treatment: string[]
   prevention: string[]
