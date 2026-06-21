@@ -3,7 +3,11 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from contextlib import asynccontextmanager
 import os
+import sys
 import numpy as np
+
+# Ensure backend/ is always on sys.path regardless of uvicorn launch directory
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
 from routes import auth, reports, predict, alerts, community, dashboard, profile, schemes, weather
 from database import create_indexes
