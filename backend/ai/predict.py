@@ -3,7 +3,7 @@ import io
 import os
 from PIL import Image
 
-MODEL_PATH = os.path.join(os.path.dirname(__file__), "model.keras")
+TFLITE_MODEL_PATH = os.path.join(os.path.dirname(__file__), "model.tflite")
 CLASS_NAMES_PATH = os.path.join(os.path.dirname(__file__), "class_names.json")
 
 DISEASE_INFO = {
@@ -51,9 +51,6 @@ _model = None
 _class_names = None
 
 def _normalize_key(name: str) -> str:
-    """Normalize PlantVillage-style class names so naming quirks
-    (single vs double vs triple underscore, commas, spaces) don't
-    cause lookup misses between class_names.json and DISEASE_INFO."""
     return name.replace(",", "").replace(" ", "_").replace("-", "_").lower().replace("___", "_").replace("__", "_")
 
 _DISEASE_INFO_NORMALIZED = {_normalize_key(k): v for k, v in DISEASE_INFO.items()}
@@ -73,29 +70,20 @@ def load_model():
     global _model
     if _model is None:
         import tensorflow as tf
-        if not os.path.exists(MODEL_PATH):
-            raise FileNotFoundError(
-                f"Model not found at {MODEL_PATH}. "
-                "Please train the model first using Google Colab. "
-                "See TRAINING_GUIDE.md in the project root."
-            )
-        _model = tf.keras.models.load_model(MODEL_PATH)
+        if not os.path.exists(TFLITE_MODEL_PATH):
+            raise FileNotFoundError(f"Model not found at {TFLITE_MODEL_PATH}.")
+        interpreter = tf.lite.Interpreter(model_path=TFLITE_MODEL_PATH)
+        interpreter.allocate_tensors()
+        _model = interpreter
     return _model
 
-CONFIDENCE_THRESHOLD = 0.60  # below this, flag result as uncertain
-GREEN_PIXEL_THRESHOLD = 0.12  # min fraction of green-dominant pixels to look "plant-like"
+CONFIDENCE_THRESHOLD = 0.60
+GREEN_PIXEL_THRESHOLD = 0.12
 
 class NotPlantError(Exception):
-    """Raised when the uploaded image doesn't look like it contains a plant/leaf."""
     pass
 
 def _looks_like_plant(img: Image.Image) -> bool:
-    """Cheap heuristic: leaf photos are dominated by green-ish pixels
-    (green channel notably higher than red and blue). This won't catch
-    every edge case (e.g. a yellowed/browned diseased leaf with little
-    green left), so it's intentionally lenient — it's meant to reject
-    obviously unrelated photos (people, screenshots, buildings, etc.),
-    not to judge plant health."""
     small = img.resize((64, 64))
     arr = np.array(small, dtype=np.float32)
     r, g, b = arr[:, :, 0], arr[:, :, 1], arr[:, :, 2]
@@ -104,8 +92,6 @@ def _looks_like_plant(img: Image.Image) -> bool:
     return green_fraction >= GREEN_PIXEL_THRESHOLD
 
 def _crop_prefix(class_name: str) -> str:
-    """Extract the crop name prefix from a class name, e.g.
-    'Tomato___Late_blight' -> 'tomato', 'Pepper__bell___healthy' -> 'pepper'."""
     norm = _normalize_key(class_name)
     return norm.split("_")[0]
 
@@ -122,15 +108,16 @@ def predict_image(image_bytes: bytes, crop_filter: str = None) -> dict:
     img = img.resize((224, 224))
     arr = np.array(img, dtype=np.float32) / 255.0
     arr = np.expand_dims(arr, axis=0)
-    predictions = model.predict(arr, verbose=0)[0]
 
-    # Build list of (index, confidence) sorted high to low
+    # TFLite inference
+    input_details = model.get_input_details()
+    output_details = model.get_output_details()
+    model.set_tensor(input_details[0]['index'], arr)
+    model.invoke()
+    predictions = model.get_tensor(output_details[0]['index'])[0]
+
     order = np.argsort(predictions)[::-1]
 
-    # If a crop filter was given (e.g. "Tomato"), restrict candidates to
-    # classes whose prefix matches. Falls back to all classes if the
-    # filter doesn't match anything (e.g. user picked a crop the model
-    # wasn't trained on) so we never return an empty result.
     if crop_filter:
         wanted_prefix = _normalize_key(crop_filter).split("_")[0]
         filtered_order = [i for i in order if _crop_prefix(class_names[i]) == wanted_prefix]
@@ -144,7 +131,6 @@ def predict_image(image_bytes: bytes, crop_filter: str = None) -> dict:
     if info is None:
         info = DISEASE_INFO["Tomato___healthy"]
 
-    # Top 3 alternatives (within the filtered candidate set) for context
     top3 = []
     for i in order[:3]:
         key = class_names[int(i)] if int(i) < len(class_names) else "Tomato___healthy"
