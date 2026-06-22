@@ -108,27 +108,36 @@ export default function Heatmap() {
 }
 
 function GlobeView({ reports }: { reports: Report[] }) {
-  const [Globe, setGlobe] = useState<any>(null)
+  const [GlobeComponent, setGlobeComponent] = useState<any>(null)
 
   useEffect(() => {
-    import('react-globe.gl').then(m => setGlobe(() => m.default))
+    import('react-globe.gl').then(m => setGlobeComponent(() => m.default))
   }, [])
 
-  if (!Globe) return (
+  const points = reports
+    .filter(r => r.latitude && r.longitude && Math.abs(r.latitude) > 0.01 && Math.abs(r.longitude) > 0.01)
+    .map(r => ({
+      lat: r.latitude, lng: r.longitude,
+      size: r.riskLevel === 'High' ? 0.8 : r.riskLevel === 'Medium' ? 0.5 : 0.3,
+      color: riskColors[r.riskLevel] || '#22C55E',
+      label: `${r.diseaseName} (${r.cropName})`,
+    }))
+
+  if (!GlobeComponent) return (
     <div className="flex items-center justify-center">
       <div className="w-8 h-8 border-2 border-white border-t-transparent rounded-full animate-spin" />
     </div>
   )
 
-  const points = reports.map(r => ({
-    lat: r.latitude, lng: r.longitude,
-    size: r.riskLevel === 'High' ? 0.8 : r.riskLevel === 'Medium' ? 0.5 : 0.3,
-    color: riskColors[r.riskLevel] || '#22C55E',
-    label: `${r.diseaseName} (${r.cropName})`,
-  }))
+  if (points.length === 0) return (
+    <div className="flex flex-col items-center justify-center text-white opacity-50 gap-3">
+      <Globe size={48} />
+      <p>No location data to display on globe</p>
+    </div>
+  )
 
   return (
-    <Globe
+    <GlobeComponent
       width={800} height={580}
       globeImageUrl="https://unpkg.com/three-globe/example/img/earth-night.jpg"
       pointsData={points}
