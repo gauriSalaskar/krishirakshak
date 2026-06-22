@@ -210,19 +210,6 @@ npm run build
    - **Start Command:** `uvicorn main:app --host 0.0.0.0 --port $PORT`
 5. Add environment variables from `.env`
 
----
-
-## 🔧 Recent Fixes (v1.1)
-
-- ✅ **Cloudinary image hosting** — images now persist on Render's free tier instead of disappearing on restart (falls back to local disk if Cloudinary isn't configured)
-- ✅ **Eligibility Checker** — full modal UI wired to `/schemes/eligibility` (was backend-only before)
-- ✅ **Weather caching** — `/weather` endpoint caches Open-Meteo responses in MongoDB for 30 minutes instead of hitting the API on every report
-- ✅ **Client-side image compression** — photos resized to max 1600px and re-encoded as JPEG before upload
-- ✅ **Real Hindi/Marathi translation** — Kisan Yojana Hub UI strings genuinely translate; AI assistant replies in selected language
-- ✅ **WhatsApp share + Print** — added to each scheme's expanded detail view
-- ✅ **Saved schemes persist on reload** — bookmark state loads from `/schemes/saved` on mount
-- ✅ **Magnetic tilt cards** — extended to Alerts and Community pages
-- ✅ **Basic rate limiting** — 100 requests/minute per IP, in-memory
 
 ---
 
