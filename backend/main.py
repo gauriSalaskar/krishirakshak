@@ -21,19 +21,18 @@ async def lifespan(app: FastAPI):
     await create_indexes()
     print("✅ MongoDB indexes created")
 
-     # Warmup: trigger model load + XLA compilation at startup
+    # Warmup: load TFLite model at startup
     try:
-        import sys
-        print(f"DEBUG cwd: {os.getcwd()}")
-        print(f"DEBUG __file__: {__file__}")
-        print(f"DEBUG sys.path: {sys.path[:3]}")
         from ai.predict import load_model
         model = load_model()
-        dummy = np.zeros((1, 224, 224, 3), dtype=np.float32)
-        model.predict(dummy, verbose=0)
+        input_details = model.get_input_details()
+        dummy = np.zeros(input_details[0]['shape'], dtype=np.float32)
+        model.set_tensor(input_details[0]['index'], dummy)
+        model.invoke()
         print("✅ AI model warmed up")
     except Exception as e:
         print(f"⚠️ Model warmup failed (predictions may be slow): {e}")
+
     print("✅ KrishiRakshak AI backend started")
     yield
     # Shutdown
