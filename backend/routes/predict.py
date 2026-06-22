@@ -1,6 +1,5 @@
 from fastapi import APIRouter, UploadFile, File, Form, Depends, HTTPException
 from deps import get_current_user
-import os, sys
 
 router = APIRouter()
 
@@ -10,18 +9,15 @@ async def predict_disease(
     cropName: str = Form(None),
     current_user: dict = Depends(get_current_user)
 ):
-    sys.path.insert(0, os.path.join(os.path.dirname(__file__), "../../ai"))
-    
     try:
-        from predict import predict_image, NotPlantError
+        from ai.predict import predict_image, NotPlantError
         contents = await file.read()
         result = predict_image(contents, crop_filter=cropName)
         return result
-    except ImportError:
-        # Model not yet trained - return helpful error
+    except ImportError as e:
         raise HTTPException(
             status_code=503,
-            detail="AI model not loaded. Please train the model first using Google Colab. See TRAINING_GUIDE.md"
+            detail=f"AI model unavailable: {str(e)}"
         )
     except NotPlantError as e:
         raise HTTPException(status_code=400, detail=str(e))
